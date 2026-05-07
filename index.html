@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Laundry Transaction Dashboard</title>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --danger: #dc2626;
+      --border: #e5e7eb;
+      --success: #16a34a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.4;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      margin-bottom: 16px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+
+    .cards {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    }
+
+    .card h3 {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .card .value {
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .form-card {
+      margin-bottom: 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .form-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+      }
+    }
+
+    @media (max-width: 600px) {
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    input, select, button {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 11px;
+      font-size: 14px;
+    }
+
+    input:focus, select:focus {
+      outline: 2px solid #bfdbfe;
+      border-color: #93c5fd;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      width: auto;
+      min-width: 140px;
+      color: #fff;
+      background: var(--primary);
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: #374151;
+    }
+
+    .btn-secondary:hover {
+      background: #111827;
+    }
+
+    .btn-danger {
+      background: var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: #b91c1c;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-wrap {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      flex: 1;
+    }
+
+    .search-wrap input {
+      min-width: 260px;
+      flex: 1;
+      background: #fff;
+    }
+
+    .filter-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .filter-chip {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: #374151;
+      padding: 8px 12px;
+      border-radius: 999px;
+      min-width: auto;
+    }
+
+    .filter-chip.active {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .inline-select {
+      min-width: 110px;
+      width: auto;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .btn-small {
+      min-width: auto;
+      padding: 6px 8px;
+      font-size: 12px;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 1100px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 10px;
+      text-align: left;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    th {
+      background: #f9fafb;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      font-size: 12px;
+      letter-spacing: 0.2px;
+      color: #374151;
+    }
+
+    .text-right {
+      text-align: right;
+    }
+
+    .chip {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 99px;
+      background: #eef2ff;
+      color: #3730a3;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .empty {
+      padding: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .error {
+      color: var(--danger);
+      margin-top: 8px;
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    .success {
+      color: var(--success);
+      margin-top: 8px;
+      font-size: 13px;
+      min-height: 18px;
+    }
+
+    .chart-card {
+      margin-top: 18px;
+    }
+
+    .chart-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    }
+
+    .small-note {
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Laundry Transaction Dashboard</h1>
+    <p class="subtitle">Track daily laundry transactions, search customers, and export reports to PDF.</p>
+
+    <!-- Dashboard Cards -->
+    <div class="grid cards">
+      <div class="card">
+        <h3>Total Transactions Today</h3>
+        <div class="value" id="totalTxToday">0</div>
+      </div>
+      <div class="card">
+        <h3>Revenue Today</h3>
+        <div class="value" id="revenueToday">Rp 0</div>
+      </div>
+      <div class="card">
+        <h3>Total Revenue</h3>
+        <div class="value" id="totalRevenue">Rp 0</div>
+      </div>
+      <div class="card">
+        <h3>Total Transactions (All)</h3>
+        <div class="value" id="totalTxAll">0</div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="card form-card">
+      <h2 style="font-size:18px; margin-bottom:12px;">Add New Transaction Journal</h2>
+      <form id="txForm">
+        <div class="form-grid">
+          <div>
+            <label for="tanggal">Tanggal</label>
+            <input type="date" id="tanggal" required />
+          </div>
+
+          <div>
+            <label for="nomorNota">Nomer Nota</label>
+            <input type="text" id="nomorNota" placeholder="NT-001" required />
+          </div>
+
+          <div>
+            <label for="namaCustomer">Nama Customer</label>
+            <input type="text" id="namaCustomer" placeholder="John Doe" required />
+          </div>
+
+          <div>
+            <label for="jenisLaundry">Jenis Laundry</label>
+            <select id="jenisLaundry" required></select>
+          </div>
+
+          <div id="otherLaundryWrap" style="display:none;">
+            <label for="otherLaundryType">Other Laundry Type</label>
+            <input type="text" id="otherLaundryType" placeholder="Input custom laundry type" />
+          </div>
+
+          <div>
+            <label for="hargaPerKilo">Harga per Kilo (Rp)</label>
+            <input type="number" id="hargaPerKilo" min="0" step="1" placeholder="8000" required />
+          </div>
+
+          <div>
+            <label for="beratKg">Berat yang di Laundry (Kg)</label>
+            <input type="number" id="beratKg" min="0" step="0.001" placeholder="3.843" required />
+          </div>
+
+          <div>
+            <label for="jumlahUang">Jumlah Uang (Rp, auto)</label>
+            <input type="number" id="jumlahUang" min="0" step="1" placeholder="28000" required readonly />
+          </div>
+
+          <div>
+            <label for="tanggalBayar">Tanggal Bayar</label>
+            <input type="date" id="tanggalBayar" />
+          </div>
+
+          <div>
+            <label for="paymentMethod">Payment Method</label>
+            <select id="paymentMethod" required></select>
+          </div>
+
+          <div>
+            <label for="notes">Notes</label>
+            <input type="text" id="notes" placeholder="Additional notes" />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="submit" id="saveBtn">Save Transaction</button>
+          <button type="button" class="btn-secondary" id="resetBtn">Reset Form</button>
+          <button type="button" class="btn-danger" id="clearAllBtn">Clear All Data</button>
+        </div>
+
+        <div class="error" id="errorMsg"></div>
+        <div class="success" id="successMsg"></div>
+      </form>
+      <p class="small-note">Tip: You can add more options in Jenis Laundry list from JavaScript variable <code>JENIS_LAUNDRY_OPTIONS</code>.</p>
+    </div>
+
+    <!-- Filters + Export -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <select id="filterPaymentMethod"></select>
+        <select id="filterJenisLaundry"></select>
+        <input type="date" id="filterDate" />
+      </div>
+      <button id="exportPdfBtn">Export Table to PDF</button>
+    </div>
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Nomer Nota</th>
+            <th>Nama Customer</th>
+            <th>Jenis Laundry</th>
+            <th class="text-right">Harga/Kg</th>
+            <th class="text-right">Berat (Kg)</th>
+            <th class="text-right">Jumlah Uang</th>
+            <th>Tanggal Bayar</th>
+            <th>Payment Method</th>
+            <th>Notes</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="txTableBody"></tbody>
+      </table>
+      <div id="emptyState" class="empty">No transaction data yet.</div>
+    </div>
+
+    <!-- Charts -->
+    <div class="card chart-card">
+      <h2 style="font-size:18px; margin-bottom:12px;">Dashboard Charts</h2>
+      <div class="toolbar" style="margin-bottom:16px;">
+        <div class="search-wrap" style="flex:0;">
+          <select id="periodFilter" style="min-width:220px;">
+            <option value="daily">Total Revenue (Today)</option>
+            <option value="weekly">Total Revenue (This Week)</option>
+            <option value="monthly">Total Revenue (This Month)</option>
+            <option value="yearly">Total Revenue (This Year)</option>
+          </select>
+        </div>
+        <div class="card" style="padding:10px 14px;">
+          <h3 style="margin-bottom:4px;">Filtered Total Revenue</h3>
+          <div class="value" id="filteredRevenue">Rp 0</div>
+        </div>
+      </div>
+      <div class="chart-grid">
+        <div>
+          <canvas id="jenisChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Config =====
+    const STORAGE_KEY = "laundry_transactions";
+    const SUPABASE_URL = "https://axpdhpvbdjyvlyumitvn.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_FiAVgJ6TE89wZI-iWuC2hg_-OTSemCR";
+
+    const JENIS_LAUNDRY_OPTIONS = [
+      "Strika",
+      "Cuci kering",
+      "Cuci strika",
+      "Other"
+    ];
+
+    const PAYMENT_METHOD_OPTIONS = ["QRIS", "Cash", "Transfer", "Not Paid"];
+
+    // ===== State =====
+    let transactions = [];
+    let filteredTransactions = [];
+    let jenisChart = null;
+    let realtimeChannel = null;
+
+    // ===== Elements =====
+    const txForm = document.getElementById("txForm");
+    const tanggalEl = document.getElementById("tanggal");
+    const nomorNotaEl = document.getElementById("nomorNota");
+    const namaCustomerEl = document.getElementById("namaCustomer");
+    const jenisLaundryEl = document.getElementById("jenisLaundry");
+    const otherLaundryTypeEl = document.getElementById("otherLaundryType");
+    const otherLaundryWrapEl = document.getElementById("otherLaundryWrap");
+    const hargaPerKiloEl = document.getElementById("hargaPerKilo");
+    const beratKgEl = document.getElementById("beratKg");
+    const jumlahUangEl = document.getElementById("jumlahUang");
+    const tanggalBayarEl = document.getElementById("tanggalBayar");
+    const paymentMethodEl = document.getElementById("paymentMethod");
+    const notesEl = document.getElementById("notes");
+
+    const errorMsgEl = document.getElementById("errorMsg");
+    const successMsgEl = document.getElementById("successMsg");
+    const txTableBodyEl = document.getElementById("txTableBody");
+    const emptyStateEl = document.getElementById("emptyState");
+    const filterPaymentMethodEl = document.getElementById("filterPaymentMethod");
+    const filterJenisLaundryEl = document.getElementById("filterJenisLaundry");
+    const filterDateEl = document.getElementById("filterDate");
+
+    const totalTxTodayEl = document.getElementById("totalTxToday");
+    const revenueTodayEl = document.getElementById("revenueToday");
+    const totalRevenueEl = document.getElementById("totalRevenue");
+    const totalTxAllEl = document.getElementById("totalTxAll");
+    const periodFilterEl = document.getElementById("periodFilter");
+    const filteredRevenueEl = document.getElementById("filteredRevenue");
+
+    const resetBtn = document.getElementById("resetBtn");
+    const clearAllBtn = document.getElementById("clearAllBtn");
+    const exportPdfBtn = document.getElementById("exportPdfBtn");
+    const supabaseClient = window.supabase?.createClient
+      ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+      : null;
+
+    // ===== Utils =====
+    function formatRupiah(num) {
+      return "Rp " + Number(num || 0).toLocaleString("id-ID");
+    }
+
+    function todayDDMMYYYY() {
+      const d = new Date();
+      const dd = String(d.getDate()).padStart(2, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const yyyy = d.getFullYear();
+      return `${dd}-${mm}-${yyyy}`;
+    }
+
+    function isoToDDMMYYYY(isoStr) {
+      if (!isoStr) return "";
+      const s = String(isoStr).slice(0, 10);
+      const [yyyy, mm, dd] = s.split("-");
+      return `${dd}-${mm}-${yyyy}`;
+    }
+
+    function parseISODateLocal(isoStr) {
+      if (!isoStr) return null;
+      if (isoStr instanceof Date) {
+        return new Date(isoStr.getFullYear(), isoStr.getMonth(), isoStr.getDate());
+      }
+      if (typeof isoStr !== "string") return null;
+      const s = isoStr.slice(0, 10);
+      const parts = s.split("-");
+      if (parts.length !== 3) return null;
+      const y = Number(parts[0]);
+      const m = Number(parts[1]);
+      const d = Number(parts[2]);
+      if (!y || !m || !d) return null;
+      return new Date(y, m - 1, d);
+    }
+
+    function isValidISODate(dateStr) {
+      if (!dateStr) return false;
+      const d = new Date(dateStr);
+      return !Number.isNaN(d.getTime());
+    }
+
+    function getBillableWeight(weight) {
+      const w = Number(weight || 0);
+      return w > 0 && w < 5 ? 5 : w;
+    }
+
+    function roundUpToNearestHundred(num) {
+      return Math.ceil(Number(num || 0) / 100) * 100;
+    }
+
+    function updateOtherLaundryVisibility() {
+      if (jenisLaundryEl.value === "Other") {
+        otherLaundryWrapEl.style.display = "block";
+        otherLaundryTypeEl.required = true;
+      } else {
+        otherLaundryWrapEl.style.display = "none";
+        otherLaundryTypeEl.required = false;
+        otherLaundryTypeEl.value = "";
+      }
+    }
+
+    function calculateAmount() {
+      const harga = Number(hargaPerKiloEl.value || 0);
+      const berat = Number(beratKgEl.value || 0);
+      if (harga <= 0 || berat <= 0) {
+        jumlahUangEl.value = "";
+        return;
+      }
+      jumlahUangEl.value = roundUpToNearestHundred(harga * getBillableWeight(berat));
+    }
+
+    function getPeriodRange(period) {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth();
+
+      if (period === "daily") {
+        const start = new Date(year, month, now.getDate());
+        const end = new Date(year, month, now.getDate() + 1);
+        return { start, end };
+      }
+
+      if (period === "weekly") {
+        // Week starts on Monday
+        const start = new Date(year, month, now.getDate());
+        const day = start.getDay(); // 0=Sun, 1=Mon...
+        const diffToMonday = (day + 6) % 7;
+        start.setDate(start.getDate() - diffToMonday);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 7);
+        return { start, end };
+      }
+
+      if (period === "monthly") {
+        const start = new Date(year, month, 1);
+        const end = new Date(year, month + 1, 1);
+        return { start, end };
+      }
+
+      if (period === "yearly") {
+        const start = new Date(year, 0, 1);
+        const end = new Date(year + 1, 0, 1);
+        return { start, end };
+      }
+
+      return null;
+    }
+
+    function isTxInPeriod(txTanggal, period) {
+      const range = getPeriodRange(period);
+      if (!range) return false;
+      const d = parseISODateLocal(txTanggal);
+      if (!d) return false;
+      return d >= range.start && d < range.end;
+    }
+
+    function getPeriodRevenue(period, arr) {
+      const base = arr || [];
+      return base.reduce((sum, tx) => {
+        if (!isTxInPeriod(tx.tanggal, period)) return sum;
+        return sum + Number(tx.jumlahUang || 0);
+      }, 0);
+    }
+
+    function formatDateForInput(dateObj) {
+      const d = new Date(dateObj);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${day}`;
+    }
+
+    function updateFilteredRevenueCard() {
+      filteredRevenueEl.textContent = formatRupiah(
+        getPeriodRevenue(periodFilterEl.value, filteredTransactions)
+      );
+    }
+
+    function toSupabaseRow(tx) {
+      return {
+        id: tx.id,
+        tanggal: tx.tanggal,
+        nomor_nota: tx.nomorNota,
+        nama_customer: tx.namaCustomer,
+        jenis_laundry: tx.jenisLaundry,
+        harga_per_kilo: tx.hargaPerKilo,
+        berat_kg: tx.beratKg,
+        jumlah_uang: tx.jumlahUang,
+        tanggal_bayar: tx.tanggalBayar ? tx.tanggalBayar : null,
+        payment_method: tx.paymentMethod,
+        notes: tx.notes || null
+      };
+    }
+
+    function fromSupabaseRow(row) {
+      return {
+        id: row.id,
+        tanggal: row.tanggal,
+        nomorNota: row.nomor_nota,
+        namaCustomer: row.nama_customer,
+        jenisLaundry: row.jenis_laundry,
+        hargaPerKilo: Number(row.harga_per_kilo),
+        beratKg: Number(row.berat_kg),
+        jumlahUang: Number(row.jumlah_uang),
+        tanggalBayar: row.tanggal_bayar || "",
+        paymentMethod: row.payment_method,
+        notes: row.notes || ""
+      };
+    }
+
+    function clearMessages() {
+      errorMsgEl.textContent = "";
+      successMsgEl.textContent = "";
+    }
+
+    function setError(msg) {
+      errorMsgEl.textContent = msg;
+      successMsgEl.textContent = "";
+    }
+
+    function setSuccess(msg) {
+      successMsgEl.textContent = msg;
+      errorMsgEl.textContent = "";
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions));
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        transactions = raw ? JSON.parse(raw) : [];
+      } catch (err) {
+        transactions = [];
+      }
+      filteredTransactions = [...transactions];
+    }
+
+    async function loadTransactions() {
+      if (!supabaseClient) {
+        loadFromStorage();
+        return;
+      }
+      const { data, error } = await supabaseClient.from("laundry_transactions").select("*").order("created_at", { ascending: false });
+      if (error) {
+        setError("Supabase load failed. Using local data.");
+        loadFromStorage();
+        return;
+      }
+      transactions = (data || []).map(fromSupabaseRow);
+      saveToStorage();
+      filteredTransactions = [...transactions];
+    }
+
+    function setupRealtimeSync() {
+      if (!supabaseClient) return;
+      realtimeChannel = supabaseClient
+        .channel("laundry-transactions-realtime")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "laundry_transactions" },
+          async () => {
+            await loadTransactions();
+            applyFilters();
+          }
+        )
+        .subscribe((status) => {
+          console.log("Realtime status:", status);
+        });
+    }
+
+    async function saveTransaction(tx) {
+      if (!supabaseClient) {
+        saveToStorage();
+        return true;
+      }
+      const payload = toSupabaseRow(tx);
+      let { error } = await supabaseClient.from("laundry_transactions").insert([payload]);
+      if (error && String(error.message || "").toLowerCase().includes("notes")) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.notes;
+        const retry = await supabaseClient.from("laundry_transactions").insert([fallbackPayload]);
+        error = retry.error;
+      }
+      if (error) {
+        setError("Supabase save failed. Data kept locally.");
+        saveToStorage();
+        return false;
+      }
+      saveToStorage();
+      return true;
+    }
+
+    async function deleteTransactionRemote(id) {
+      if (!supabaseClient) {
+        saveToStorage();
+        return true;
+      }
+      const { error } = await supabaseClient.from("laundry_transactions").delete().eq("id", id);
+      if (error) {
+        setError("Supabase delete failed.");
+        saveToStorage();
+        return false;
+      }
+      saveToStorage();
+      return true;
+    }
+
+    async function updatePaymentMethodRemote(id, paymentMethod, tanggalBayar) {
+      if (!supabaseClient) {
+        saveToStorage();
+        return true;
+      }
+      const { error } = await supabaseClient
+        .from("laundry_transactions")
+        .update({
+          payment_method: paymentMethod,
+          tanggal_bayar: tanggalBayar ? tanggalBayar : null
+        })
+        .eq("id", id);
+      if (error) {
+        setError("Supabase update failed.");
+        saveToStorage();
+        return false;
+      }
+      saveToStorage();
+      return true;
+    }
+
+    function populateDropdown(selectEl, options) {
+      selectEl.innerHTML = "";
+      options.forEach((opt) => {
+        const optionEl = document.createElement("option");
+        optionEl.value = opt;
+        optionEl.textContent = opt;
+        selectEl.appendChild(optionEl);
+      });
+    }
+
+    // ===== Validation =====
+    function validateForm(data) {
+      if (!isValidISODate(data.tanggal)) {
+        return "Tanggal is invalid.";
+      }
+
+      if (data.paymentMethod !== "Not Paid") {
+        if (!data.tanggalBayar || !isValidISODate(data.tanggalBayar)) {
+          return "Tanggal Bayar is required for paid transactions.";
+        }
+      }
+      if (!data.nomorNota.trim()) return "Nomer Nota is required.";
+      if (!data.namaCustomer.trim()) return "Nama Customer is required.";
+      if (!JENIS_LAUNDRY_OPTIONS.includes(data.jenisLaundry)) {
+        return "Jenis Laundry is invalid.";
+      }
+      if (data.jenisLaundry === "Other" && !data.otherLaundryType.trim()) {
+        return "Please fill Other Laundry Type.";
+      }
+      if (!PAYMENT_METHOD_OPTIONS.includes(data.paymentMethod)) {
+        return "Payment Method is invalid.";
+      }
+      if (Number(data.hargaPerKilo) <= 0) return "Harga per Kilo must be > 0.";
+      if (Number(data.beratKg) <= 0) return "Berat must be > 0.";
+      if (Number(data.jumlahUang) <= 0) return "Jumlah Uang must be > 0.";
+
+      const duplicateNota = transactions.some(
+        (tx) => tx.nomorNota.toLowerCase() === data.nomorNota.toLowerCase()
+      );
+      if (duplicateNota) {
+        return "Nomer Nota already exists. Please use a unique number.";
+      }
+
+      return null;
+    }
+
+    // ===== Render =====
+    function renderTable(rows) {
+      txTableBodyEl.innerHTML = "";
+
+      if (!rows.length) {
+        emptyStateEl.style.display = "block";
+        return;
+      }
+
+      emptyStateEl.style.display = "none";
+
+      rows.forEach((tx) => {
+        const tr = document.createElement("tr");
+
+        tr.innerHTML = `
+          <td>${isoToDDMMYYYY(tx.tanggal)}</td>
+          <td>${tx.nomorNota}</td>
+          <td>${tx.namaCustomer}</td>
+          <td><span class="chip">${tx.jenisLaundry}</span></td>
+          <td class="text-right">${formatRupiah(tx.hargaPerKilo)}</td>
+          <td class="text-right">${Number(tx.beratKg).toFixed(3)}</td>
+          <td class="text-right">${formatRupiah(tx.jumlahUang)}</td>
+          <td>${isoToDDMMYYYY(tx.tanggalBayar)}</td>
+          <td>
+            <div class="table-actions">
+              <select data-id="${tx.id}" class="inline-select payment-edit">
+                ${PAYMENT_METHOD_OPTIONS.map((method) => `<option value="${method}" ${method === tx.paymentMethod ? "selected" : ""}>${method}</option>`).join("")}
+              </select>
+              <button data-id="${tx.id}" class="btn-small save-payment-btn">Save</button>
+            </div>
+          </td>
+          <td>${tx.notes || "-"}</td>
+          <td>
+            <button data-id="${tx.id}" class="btn-danger delete-btn" style="padding:6px 10px; min-width:auto;">Delete</button>
+          </td>
+        `;
+
+        txTableBodyEl.appendChild(tr);
+      });
+
+      document.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-id");
+          await deleteTransaction(id);
+        });
+      });
+
+      document.querySelectorAll(".save-payment-btn").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-id");
+          const selectEl = document.querySelector(`.payment-edit[data-id="${id}"]`);
+          await updateTransactionPaymentMethod(id, selectEl.value);
+        });
+      });
+    }
+
+    function renderCards() {
+      const today = formatDateForInput(new Date());
+      const txToday = transactions.filter((tx) => tx.tanggal === today);
+      const revenueToday = txToday.reduce((sum, tx) => sum + Number(tx.jumlahUang), 0);
+      const revenueMonth = getPeriodRevenue("monthly", transactions);
+
+      totalTxTodayEl.textContent = txToday.length;
+      revenueTodayEl.textContent = formatRupiah(revenueToday);
+      totalRevenueEl.textContent = formatRupiah(revenueMonth);
+      totalTxAllEl.textContent = transactions.length;
+      updateFilteredRevenueCard();
+    }
+
+    function buildCountMap(arr, key) {
+      return arr.reduce((acc, item) => {
+        const val = item[key] || "Unknown";
+        acc[val] = (acc[val] || 0) + 1;
+        return acc;
+      }, {});
+    }
+
+    function renderCharts() {
+      const period = periodFilterEl.value;
+      const jenisRevenueMap = {};
+      filteredTransactions.forEach((tx) => {
+        if (!isTxInPeriod(tx.tanggal, period)) return;
+        const key = tx.jenisLaundry || "Unknown";
+        jenisRevenueMap[key] = (jenisRevenueMap[key] || 0) + Number(tx.jumlahUang || 0);
+      });
+
+      const jenisLabels = Object.keys(jenisRevenueMap);
+      const jenisData = Object.values(jenisRevenueMap);
+
+      const jenisCtx = document.getElementById("jenisChart").getContext("2d");
+
+      if (jenisChart) jenisChart.destroy();
+
+      jenisChart = new Chart(jenisCtx, {
+        type: "bar",
+        data: {
+          labels: jenisLabels,
+          datasets: [{
+            label: `Revenue by Jenis Laundry (${period})`,
+            data: jenisData,
+            backgroundColor: "#60a5fa"
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            legend: { display: false }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: (value) => `Rp ${Number(value).toLocaleString("id-ID")}`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderAll() {
+      renderTable(filteredTransactions);
+      renderCards();
+      renderCharts();
+    }
+
+    // ===== CRUD =====
+    async function addTransaction(data) {
+      const tx = {
+        id: crypto.randomUUID(),
+        ...data,
+        hargaPerKilo: Number(data.hargaPerKilo),
+        beratKg: Number(data.beratKg),
+        jumlahUang: roundUpToNearestHundred(data.jumlahUang),
+        notes: data.notes || ""
+      };
+
+      transactions.unshift(tx);
+      await saveTransaction(tx);
+      applyFilters();
+      setSuccess("Transaction saved successfully.");
+    }
+
+    async function deleteTransaction(id) {
+      const ok = confirm("Delete this transaction?");
+      if (!ok) return;
+
+      transactions = transactions.filter((tx) => tx.id !== id);
+      await deleteTransactionRemote(id);
+      applyFilters();
+      setSuccess("Transaction deleted.");
+    }
+
+    async function clearAllData() {
+      const ok = confirm("Are you sure you want to clear ALL data?");
+      if (!ok) return;
+
+      transactions = [];
+      saveToStorage();
+      if (supabaseClient) {
+        await supabaseClient.from("laundry_transactions").delete().neq("id", "");
+      }
+      applyFilters();
+      setSuccess("All data cleared.");
+    }
+
+    async function updateTransactionPaymentMethod(id, paymentMethod) {
+      const tx = transactions.find((item) => item.id === id);
+      if (!tx) return;
+
+      const prevPaymentMethod = tx.paymentMethod;
+      let nextTanggalBayar = tx.tanggalBayar || "";
+
+      // Requirement: When changing from "Not Paid" to a paid method, set tanggal bayar to today.
+      if (paymentMethod === "Not Paid") {
+        nextTanggalBayar = "";
+      } else if (prevPaymentMethod === "Not Paid" && paymentMethod !== "Not Paid") {
+        nextTanggalBayar = formatDateForInput(new Date());
+      }
+
+      tx.paymentMethod = paymentMethod;
+      tx.tanggalBayar = nextTanggalBayar;
+
+      await updatePaymentMethodRemote(id, paymentMethod, nextTanggalBayar);
+      saveToStorage();
+      applyFilters();
+      setSuccess("Payment method updated.");
+    }
+
+    // ===== Filters =====
+    function applyFilters() {
+      const paymentFilter = filterPaymentMethodEl.value;
+      const jenisFilter = filterJenisLaundryEl.value;
+      const dateFilter = filterDateEl.value;
+
+      filteredTransactions = transactions.filter((tx) => {
+        const paymentMatch = paymentFilter === "all" || tx.paymentMethod === paymentFilter;
+        const jenisMatch = jenisFilter === "all" || tx.jenisLaundry === jenisFilter;
+        const dateMatch = !dateFilter || tx.tanggal === dateFilter;
+        return paymentMatch && jenisMatch && dateMatch;
+      });
+
+      renderAll();
+    }
+
+    // ===== PDF =====
+    function exportToPDF(rows) {
+      if (!rows.length) {
+        setError("No data to export.");
+        return;
+      }
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF("landscape");
+
+      doc.setFontSize(14);
+      doc.text("Laundry Transaction Report", 14, 12);
+
+      doc.setFontSize(10);
+      doc.text(`Generated: ${new Date().toLocaleString("id-ID")}`, 14, 18);
+
+      doc.autoTable({
+        startY: 22,
+        head: [[
+          "Tanggal",
+          "Nomer Nota",
+          "Nama Customer",
+          "Jenis Laundry",
+          "Harga/Kg",
+          "Berat (Kg)",
+          "Jumlah Uang",
+          "Tanggal Bayar",
+          "Payment Method",
+          "Notes"
+        ]],
+        body: rows.map((tx) => [
+          isoToDDMMYYYY(tx.tanggal),
+          tx.nomorNota,
+          tx.namaCustomer,
+          tx.jenisLaundry,
+          formatRupiah(tx.hargaPerKilo),
+          tx.beratKg,
+          formatRupiah(tx.jumlahUang),
+          isoToDDMMYYYY(tx.tanggalBayar),
+          tx.paymentMethod,
+          tx.notes || "-"
+        ]),
+        styles: {
+          fontSize: 8,
+          cellPadding: 2
+        },
+        headStyles: {
+          fillColor: [37, 99, 235]
+        }
+      });
+
+      doc.save(`laundry-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      setSuccess("PDF exported successfully.");
+    }
+
+    // ===== Events =====
+    txForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      clearMessages();
+
+      const selectedJenisLaundry = jenisLaundryEl.value;
+      const formData = {
+        tanggal: tanggalEl.value.trim(),
+        nomorNota: nomorNotaEl.value.trim(),
+        namaCustomer: namaCustomerEl.value.trim(),
+        jenisLaundry: selectedJenisLaundry,
+        otherLaundryType: otherLaundryTypeEl.value.trim(),
+        hargaPerKilo: hargaPerKiloEl.value,
+        beratKg: beratKgEl.value,
+        jumlahUang: jumlahUangEl.value,
+        tanggalBayar: tanggalBayarEl.value.trim(),
+        paymentMethod: paymentMethodEl.value,
+        notes: notesEl.value.trim()
+      };
+
+      // Ensure tanggal bayar is empty for "Not Paid"
+      if (formData.paymentMethod === "Not Paid") {
+        formData.tanggalBayar = "";
+      }
+
+      const error = validateForm(formData);
+      if (error) {
+        setError(error);
+        return;
+      }
+
+      const payloadData = { ...formData };
+      if (payloadData.jenisLaundry === "Other") {
+        payloadData.jenisLaundry = payloadData.otherLaundryType;
+      }
+
+      await addTransaction(payloadData);
+      txForm.reset();
+
+      // Keep dropdown defaults selected after reset
+      jenisLaundryEl.value = JENIS_LAUNDRY_OPTIONS[0];
+      paymentMethodEl.value = PAYMENT_METHOD_OPTIONS[0];
+      tanggalEl.value = formatDateForInput(new Date());
+      tanggalBayarEl.value =
+        paymentMethodEl.value === "Not Paid" ? "" : formatDateForInput(new Date());
+      if (paymentMethodEl.value === "Not Paid") {
+        tanggalBayarEl.removeAttribute("required");
+      } else {
+        tanggalBayarEl.required = true;
+      }
+    });
+
+    hargaPerKiloEl.addEventListener("input", calculateAmount);
+    beratKgEl.addEventListener("input", calculateAmount);
+    jenisLaundryEl.addEventListener("change", updateOtherLaundryVisibility);
+
+    filterPaymentMethodEl.addEventListener("change", applyFilters);
+    filterJenisLaundryEl.addEventListener("change", applyFilters);
+    filterDateEl.addEventListener("change", applyFilters);
+    periodFilterEl.addEventListener("change", () => {
+      updateFilteredRevenueCard();
+      renderCharts();
+    });
+
+    paymentMethodEl.addEventListener("change", () => {
+      if (paymentMethodEl.value === "Not Paid") {
+        tanggalBayarEl.value = "";
+        tanggalBayarEl.removeAttribute("required");
+      } else {
+        tanggalBayarEl.required = true;
+        if (!tanggalBayarEl.value) tanggalBayarEl.value = formatDateForInput(new Date());
+      }
+    });
+
+    resetBtn.addEventListener("click", () => {
+      txForm.reset();
+      clearMessages();
+      jenisLaundryEl.value = JENIS_LAUNDRY_OPTIONS[0];
+      paymentMethodEl.value = PAYMENT_METHOD_OPTIONS[0];
+      tanggalEl.value = formatDateForInput(new Date());
+      tanggalBayarEl.value =
+        paymentMethodEl.value === "Not Paid" ? "" : formatDateForInput(new Date());
+      updateOtherLaundryVisibility();
+      if (paymentMethodEl.value === "Not Paid") {
+        tanggalBayarEl.removeAttribute("required");
+      } else {
+        tanggalBayarEl.required = true;
+      }
+      calculateAmount();
+    });
+
+    clearAllBtn.addEventListener("click", clearAllData);
+    exportPdfBtn.addEventListener("click", () => exportToPDF(filteredTransactions));
+
+    // ===== Init =====
+    function populateFilterDropdowns() {
+      populateDropdown(filterPaymentMethodEl, ["all", ...PAYMENT_METHOD_OPTIONS]);
+      populateDropdown(filterJenisLaundryEl, ["all", ...JENIS_LAUNDRY_OPTIONS]);
+      filterPaymentMethodEl.querySelector("option[value='all']").textContent = "All Payment Methods";
+      filterJenisLaundryEl.querySelector("option[value='all']").textContent = "All Jenis Laundry";
+    }
+
+    async function init() {
+      populateDropdown(jenisLaundryEl, JENIS_LAUNDRY_OPTIONS);
+      populateDropdown(paymentMethodEl, PAYMENT_METHOD_OPTIONS);
+      populateFilterDropdowns();
+      updateOtherLaundryVisibility();
+
+      tanggalEl.value = formatDateForInput(new Date());
+      tanggalBayarEl.value = PAYMENT_METHOD_OPTIONS[0] === "Not Paid" ? "" : formatDateForInput(new Date());
+      if (paymentMethodEl.value === "Not Paid") {
+        tanggalBayarEl.removeAttribute("required");
+      } else {
+        tanggalBayarEl.required = true;
+      }
+
+      await loadTransactions();
+      setupRealtimeSync();
+      calculateAmount();
+      renderAll();
+      if (!supabaseClient) {
+        setSuccess("Running in local mode. Supabase client not initialized.");
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
